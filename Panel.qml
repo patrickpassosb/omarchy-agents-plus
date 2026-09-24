@@ -323,9 +323,17 @@ Panel {
     if (!isFinite(stamp)) return ""
     var ageSec = Math.max(0, Math.round((root.nowMs - stamp) / 1000))
     var clock = Qt.formatDateTime(new Date(stamp), "HH:mm:ss")
-    var anyStale = false
-    for (var i = 0; i < root.limits.length; i++) if (root.limits[i].stale) anyStale = true
-    if (anyStale) return "stale — provider unreachable, last good " + clock
+    // A collector that could not reach the provider re-emits cached meters,
+    // and those carry the time they were really fetched — the record's own
+    // updatedAt is this run's clock and would read as "just now".
+    var staleClock = ""
+    for (var i = 0; i < root.limits.length; i++) {
+      var window = root.limits[i]
+      if (!window.stale) continue
+      var fetched = window.staleFetchedAt ? new Date(String(window.staleFetchedAt)).getTime() : NaN
+      if (isFinite(fetched)) staleClock = Qt.formatDateTime(new Date(fetched), "HH:mm:ss")
+    }
+    if (staleClock !== "") return "stale — provider unreachable, last good " + staleClock
     if (ageSec < 90) return "as of " + clock
     if (ageSec < 5400) return "as of " + clock + " (" + Math.round(ageSec / 60) + "m ago)"
     return "stale — as of " + clock
