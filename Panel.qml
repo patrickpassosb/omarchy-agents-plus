@@ -115,6 +115,9 @@ Panel {
       // a "≤" when it is only a ceiling (no reset observed yet).
       estimated: !!entry && entry.resetsEstimated === true,
       provisional: !!entry && entry.resetsProvisional === true,
+      // The collector could not reach the provider and re-emitted its last
+      // good numbers: show them, but never as if they were current.
+      stale: !!entry && entry.stale === true,
       requestModels: entry && Array.isArray(entry.requestModels) ? entry.requestModels : []
     }
   }
@@ -312,6 +315,22 @@ Panel {
     return ""
   }
 
+  // "as of 20:41:07" — the one line that makes a stale number self-explaining
+  // instead of looking wrong next to the provider's own dashboard.
+  function asOfText() {
+    if (!provider || !provider.updatedAt) return ""
+    var stamp = new Date(String(provider.updatedAt)).getTime()
+    if (!isFinite(stamp)) return ""
+    var ageSec = Math.max(0, Math.round((root.nowMs - stamp) / 1000))
+    var clock = Qt.formatDateTime(new Date(stamp), "HH:mm:ss")
+    var anyStale = false
+    for (var i = 0; i < root.limits.length; i++) if (root.limits[i].stale) anyStale = true
+    if (anyStale) return "stale — provider unreachable, last good " + clock
+    if (ageSec < 90) return "as of " + clock
+    if (ageSec < 5400) return "as of " + clock + " (" + Math.round(ageSec / 60) + "m ago)"
+    return "stale — as of " + clock
+  }
+
   // Agents that ship a white mark carry an `assets/<id>-light.svg` twin for
   // light surfaces; marks that work on both (Claude's brand-orange) ship one
   // file. The luminance check decides which candidate to try first.
@@ -351,7 +370,7 @@ Panel {
     cursorActive = false
     nowMs = Date.now()
     if (panelFlick) panelFlick.contentY = 0
-    usage.refreshLimits()
+    usage.refreshLimitsAndEngine()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
@@ -769,7 +788,7 @@ Panel {
             visible: text !== ""
             width: parent.width
             topPadding: Style.space(2)
-            text: root.footerText()
+            text: root.asOfText()
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption

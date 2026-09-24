@@ -158,6 +158,18 @@ touched in the last 30 days, and Fireworks requests the last 30 days from its
 billing API, so their totals and day counts cover that window. Claude's cover
 every transcript still on disk.
 
+## Freshness
+
+Opening the panel asks the companion engine for its providers too (single
+flight, `AGENTS_LIMITS_ONLY=1` so the local-log scan is skipped), because that
+engine otherwise only runs on its own 15-minute timer — which is how the
+meters could sit ~15 minutes behind the provider's own dashboard. The footer
+prints `as of HH:MM:SS` from the record's own timestamp, and when a collector
+re-emits its last good numbers because the provider was unreachable, it says
+`stale — provider unreachable, last good HH:MM:SS` instead of showing them as
+current. Both the panel-open refresh and the staleness handling need the
+companion collectors to pass `AGENTS_LIMITS_ONLY` and to mark cached rows.
+
 ## Divergences from `omarchy.agents`
 
 Forked with `omarchy plugin clone omarchy.agents`, so an Omarchy update does

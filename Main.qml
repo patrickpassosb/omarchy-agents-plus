@@ -171,10 +171,42 @@ Item {
   function refresh() { refreshAll(true) }
   function refreshAll(force) { runUpdate(force === true ? "force" : "normal") }
 
+  // The collectors in this plugin are the stock ones. Anything else on this
+  // machine writes its records through the companion engine
+  // (rohaquinlop.agent-collectors), which otherwise only runs on its own
+  // 15-minute timer — so the meters it produces sat there stale while the
+  // provider's own dashboard showed the current number. Asking the engine for
+  // its providers when a panel opens closes that gap.
+  //
+  // Single-flight, and limits-only: AGENTS_LIMITS_ONLY tells the engine's
+  // hooks to skip the local-log scan (seconds of CPU) for numbers that only
+  // move once a day. The record is still rewritten from the engine's
+  // cumulative counters, so token history survives the cheap run.
+  readonly property string engineCommand: "bin=$HOME/.config/omarchy/plugins/rohaquinlop.agent-collectors/bin/agent-collectors; "
+    + "[ -x \"$bin\" ] || exit 0; exec env AGENTS_LIMITS_ONLY=1 \"$bin\" ollama grok"
+
+  Process {
+    id: engineProcess
+    running: false
+    command: ["sh", "-c", root.engineCommand]
+
+    onExited: root.rescanAgents()
+
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (text.trim() !== "") console.warn("agents(engine)", text.trim())
+    }
+  }
+
+  function refreshEngine() {
+    if (!engineProcess.running) engineProcess.running = true
+  }
+
   // Opening the panel wants the numbers that go stale on the wire, not
   // another walk over every transcript on disk — the collectors reuse their
   // recent scans in this mode.
   function refreshLimits() { runUpdate("limits") }
+  function refreshLimitsAndEngine() { refreshLimits(); refreshEngine() }
 
   // ------------------------------------------------------------- providers
 
@@ -250,6 +282,9 @@ Item {
       ready: record.ready === true || synced,
       usageStatusText: String(record.usageStatusText || ""),
       authHelpText: String(record.authHelpText || ""),
+      // When these numbers were produced, so a stale chip can say so instead
+      // of quietly showing yesterday's value.
+      updatedAt: String(record.updatedAt || ""),
 
       // Rate limits and balances stay per-account and are never merged
       // across devices.
