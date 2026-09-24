@@ -202,6 +202,17 @@ files hot-reload, QML does not.
 omarchy plugin add https://github.com/patrickpassosb/omarchy-agents-plus.git --enable
 ```
 
+## Remove
+
+```bash
+omarchy plugin remove patrickpassos.agents
+```
+
+That drops the checkout and returns the bar to the stock `omarchy.agents` panel
+(enable it with `omarchy plugin enable omarchy.agents`). It touches nothing
+else: usage records keep being written by whatever collector produced them, they
+simply stop being displayed by this plugin.
+
 ## License
 
 MIT, like the upstream panel this forks. `Panel.qml`, `Main.qml` and `Agent.qml`
