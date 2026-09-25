@@ -51,7 +51,6 @@ Panel {
   // selected one: the panel is tall and one provider's meters leave most of it
   // empty. Capped, and read from the same model the chips use.
   readonly property var otherBlocksList: otherBlocks(3)
-  readonly property var subscriptionRows: subscriptionRowList()
   readonly property var headline: bindingWindow(provider)
   readonly property var balance: provider ? (provider.balance || null) : null
   // A prepaid account runs low the way a subscription window fills up: the
@@ -285,6 +284,7 @@ Panel {
     for (var i = 0; i < list.length; i++) {
       var entry = list[i] || {}
       if (entry.providerId === current) continue
+      if (!bindingWindow(entry)) continue
       out.push(entry)
     }
     out.sort(function(a, b) {
@@ -292,24 +292,6 @@ Panel {
       return (wb ? wb.percent : -1) - (wa ? wa.percent : -1)
     })
     return out.slice(0, limit)
-  }
-
-  function subscriptionRowList() {
-    var out = []
-    var list = root.providers || []
-    for (var i = 0; i < list.length; i++) {
-      var entry = list[i] || {}
-      var fullest = bindingWindow(entry)
-      if (!fullest) continue
-      out.push({
-        name: entry.providerName,
-        total: fullest.percent,
-        label: fullest.title,
-        current: entry.providerId === (root.provider ? root.provider.providerId : "")
-      })
-    }
-    out.sort(function(a, b) { return b.total - a.total })
-    return out
   }
 
   function requestModelRows(p) {
@@ -584,15 +566,19 @@ Panel {
           }
 
           // ---------- Provider switch ----------
-          Row {
+          // Three chips to a line, wrapping down: one line of eight squeezed the
+          // labels into truncated stubs, which is what made the row unusable.
+          Flow {
             id: providerSwitch
             visible: root.providers.length > 1
             width: parent.width
             spacing: Style.spacing.md
 
-            readonly property real cellWidth: root.providers.length > 0
-              ? (width - spacing * (root.providers.length - 1)) / root.providers.length
-              : 0
+            readonly property int perRow: 3
+
+            // Exactly `perRow` fit per line, so the wrap is deliberate rather
+            // than whatever the font happens to make of the labels.
+            readonly property real cellWidth: (width - spacing * (perRow - 1)) / perRow
 
             Repeater {
               model: root.providers
