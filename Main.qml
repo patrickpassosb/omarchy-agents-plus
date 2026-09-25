@@ -154,7 +154,16 @@ Item {
     if (agentIds) {
       for (var i = 0; i < agentIds.length; i++) command.push(agentIds[i])
     }
-    return command
+    // The stock Fireworks collector reads FIREWORKS_API_KEY from its
+    // environment, and that key lives in the agent secrets file rather than in
+    // the session environment. One variable, read at run time, exported only to
+    // this child, never printed and never copied into another file.
+    var quoted = command.map(function (part) {
+      return "'" + String(part).replace(/'/g, "'\\''") + "'"
+    }).join(" ")
+    return ["sh", "-c",
+      "key=$(sed -n 's/^FIREWORKS_API_KEY=//p' \"$HOME/.config/agent-secrets/.env\" 2>/dev/null | head -1); "
+      + "if [ -n \"$key\" ]; then export FIREWORKS_API_KEY=\"$key\"; fi; exec " + quoted]
   }
 
   function runUpdate(kind, agentIds) {
