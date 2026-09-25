@@ -42,6 +42,12 @@ Panel {
   // reports them for each account window; the stock contract has no row for
   // it, so the adapter carries them on the limit row (see requestModelRows).
   readonly property var requestModels: requestModelRows(provider)
+
+  // Every subscription at a glance, in one block: the panel has room under the
+  // meters and a tab carrying two numbers leaves most of it empty. Same data
+  // the switch row switches between — each provider's fullest window — read
+  // from the panel's own model, so nothing new has to be collected for it.
+  readonly property var subscriptionRows: subscriptionRowList()
   readonly property var headline: bindingWindow(provider)
   readonly property var balance: provider ? (provider.balance || null) : null
   // A prepaid account runs low the way a subscription window fills up: the
@@ -268,6 +274,24 @@ Panel {
   // The weekly window is the one worth showing ("this week"); any other
   // marked-up window is a fallback so a provider with only a session
   // breakdown still gets a section.
+  function subscriptionRowList() {
+    var out = []
+    var list = root.providers || []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i] || {}
+      var fullest = bindingWindow(entry)
+      if (!fullest) continue
+      out.push({
+        name: entry.providerName,
+        total: fullest.percent,
+        label: fullest.title,
+        current: entry.providerId === (root.provider ? root.provider.providerId : "")
+      })
+    }
+    out.sort(function(a, b) { return b.total - a.total })
+    return out
+  }
+
   function requestModelRows(p) {
     var list = p ? (p.limits || []) : []
     var rows = null
@@ -796,6 +820,42 @@ Panel {
                 // Scaled to the heaviest model, so the top row is always full —
                 // the same scale-to-peak the weekly chart uses for its busiest day.
                 share: modelData.total / Math.max(1, root.models[0].total)
+              }
+            }
+          }
+
+          // ---------- All subscriptions ----------
+          PanelSeparator {
+            visible: subscriptionsSection.visible
+            foreground: root.foreground
+          }
+
+          Column {
+            id: subscriptionsSection
+            visible: root.subscriptionRows.length > 1
+            width: parent.width
+            spacing: Style.spacing.md
+
+            PanelSectionHeader {
+              width: parent.width
+              text: "ALL SUBSCRIPTIONS"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+            }
+
+            Repeater {
+              model: root.subscriptionRows
+
+              ModelRow {
+                required property var modelData
+                width: subscriptionsSection.width
+                row: modelData
+                // The bar is the meter itself (percent of the allowance), not a
+                // share of the heaviest row: 88% has to look like 88%.
+                share: root.clamp(modelData.total, 0, 1)
+                valueText: (Math.round(modelData.total * 1000) / 10).toFixed(1) + "%"
+                tooltip: modelData.name + " — " + modelData.label + " "
+                  + (Math.round(modelData.total * 1000) / 10).toFixed(1) + "% used"
               }
             }
           }
