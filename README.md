@@ -203,7 +203,7 @@ secrets file instead, opening the panel would collect nothing from Fireworks.
 `updateCommand` therefore runs the stock update through a shell that reads that
 one variable out of
 
-    ${AGENT_SECRETS_FILE:-~/.config/agent-secrets/.env}
+    ${AGENT_SECRETS_FILE:-$HOME/.config/agent-secrets/.env}
 
 and exports it to that child process only — never printed, never copied
 elsewhere — and prints a line to stderr when it finds no key, so a silent
