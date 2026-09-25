@@ -881,6 +881,23 @@ Panel {
                     window: modelData
                   }
                 }
+
+                // A provider that reports no rate limits (Pi, OpenCode,
+                // Fireworks) still belongs in this list — but an empty block
+                // under its name reads as "no usage", and a 0% meter would
+                // read as "untouched allowance". Say which it is instead.
+                Text {
+                  width: parent.width
+                  visible: root.limitWindows(modelData).length === 0
+                  textFormat: Text.PlainText
+                  text: "no rate limits reported"
+                    + (Number(modelData.todayTotalTokens || 0) > 0
+                        ? " · " + usage.formatTokenCount(Number(modelData.todayTotalTokens)) + " tokens today"
+                        : "")
+                  color: root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
               }
             }
           }
