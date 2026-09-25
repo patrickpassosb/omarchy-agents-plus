@@ -182,8 +182,16 @@ Item {
   // hooks to skip the local-log scan (seconds of CPU) for numbers that only
   // move once a day. The record is still rewritten from the engine's
   // cumulative counters, so token history survives the cheap run.
+  // The id set comes from the engine itself (`--validate` lists every adapter
+  // it discovered, one per line, id in the first column) rather than from a
+  // hand-kept list or from the user adapter directory alone: a hand-kept list
+  // silently missed `ollama-all`, and the directory glob missed the engine's
+  // own builtin adapters (`opencode`, `pi`), each leaving that tab on the
+  // 15-minute timer — the staleness this exists to remove.
   readonly property string engineCommand: "bin=$HOME/.config/omarchy/plugins/rohaquinlop.agent-collectors/bin/agent-collectors; "
-    + "[ -x \"$bin\" ] || exit 0; exec env AGENTS_LIMITS_ONLY=1 \"$bin\" ollama grok"
+    + "[ -x \"$bin\" ] || { echo 'agents: companion engine not installed, records stay on the stock timer'; exit 0; }; "
+    + "ids=$([ -x \"$bin\" ] && \"$bin\" --validate 2>/dev/null | awk '{print $1}'); "
+    + "[ -n \"$ids\" ] || exit 0; exec env AGENTS_LIMITS_ONLY=1 \"$bin\" $ids"
 
   Process {
     id: engineProcess
@@ -278,7 +286,10 @@ Item {
 
     return {
       providerId: String(record.id),
-      providerName: String(record.name || record.id),
+      // Chip labels: the switch row divides its width by the provider count,
+      // so a two-word name is two words of truncation. Collectors keep the
+      // record honest; only the label shortens here.
+      providerName: root.shortName(String(record.name || record.id)),
       ready: record.ready === true || synced,
       usageStatusText: String(record.usageStatusText || ""),
       authHelpText: String(record.authHelpText || ""),
@@ -308,6 +319,17 @@ Item {
       syncDeviceCount: deviceCount,
       syncUpdatedAt: aggregateData && aggregateData.updatedAt ? aggregateData.updatedAt : ""
     }
+  }
+
+  // Names that are correct in a record and too long in a chip.
+  readonly property var chipNames: ({
+    "Claude Code": "Claude",
+    "All Ollama": "Ollama all",
+    "Ollama (all)": "Ollama all"
+  })
+
+  function shortName(name) {
+    return chipNames[name] !== undefined ? chipNames[name] : name
   }
 
   function setting(name, fallback) {
@@ -699,7 +721,10 @@ Item {
   function providerSnapshot(record) {
     return {
       providerId: String(record.id),
-      providerName: String(record.name || record.id),
+      // Chip labels: the switch row divides its width by the provider count,
+      // so a two-word name is two words of truncation. Collectors keep the
+      // record honest; only the label shortens here.
+      providerName: root.shortName(String(record.name || record.id)),
       ready: record.ready === true,
       hasLocalStats: record.hasLocalStats !== false,
       hasPromptStats: record.hasPromptStats !== false,
