@@ -47,6 +47,10 @@ Panel {
   // meters and a tab carrying two numbers leaves most of it empty. Same data
   // the switch row switches between — each provider's fullest window — read
   // from the panel's own model, so nothing new has to be collected for it.
+  // The next few subscriptions, rendered as their own compact blocks under the
+  // selected one: the panel is tall and one provider's meters leave most of it
+  // empty. Capped, and read from the same model the chips use.
+  readonly property var otherBlocksList: otherBlocks(3)
   readonly property var subscriptionRows: subscriptionRowList()
   readonly property var headline: bindingWindow(provider)
   readonly property var balance: provider ? (provider.balance || null) : null
@@ -274,6 +278,22 @@ Panel {
   // The weekly window is the one worth showing ("this week"); any other
   // marked-up window is a fallback so a provider with only a session
   // breakdown still gets a section.
+  function otherBlocks(limit) {
+    var out = []
+    var list = root.providers || []
+    var current = root.provider ? root.provider.providerId : ""
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i] || {}
+      if (entry.providerId === current) continue
+      out.push(entry)
+    }
+    out.sort(function(a, b) {
+      var wa = bindingWindow(a), wb = bindingWindow(b)
+      return (wb ? wb.percent : -1) - (wa ? wa.percent : -1)
+    })
+    return out.slice(0, limit)
+  }
+
   function subscriptionRowList() {
     var out = []
     var list = root.providers || []
@@ -824,38 +844,36 @@ Panel {
             }
           }
 
-          // ---------- All subscriptions ----------
-          PanelSeparator {
-            visible: subscriptionsSection.visible
-            foreground: root.foreground
-          }
+          // ---------- The other subscriptions, as blocks ----------
+          Repeater {
+            model: root.otherBlocksList
 
-          Column {
-            id: subscriptionsSection
-            visible: root.subscriptionRows.length > 1
-            width: parent.width
-            spacing: Style.spacing.md
-
-            PanelSectionHeader {
+            Column {
+              required property var modelData
               width: parent.width
-              text: "ALL SUBSCRIPTIONS"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-            }
+              spacing: Style.spacing.md
 
-            Repeater {
-              model: root.subscriptionRows
+              PanelSeparator {
+                visible: true
+                foreground: root.foreground
+              }
 
-              ModelRow {
-                required property var modelData
-                width: subscriptionsSection.width
-                row: modelData
-                // The bar is the meter itself (percent of the allowance), not a
-                // share of the heaviest row: 88% has to look like 88%.
-                share: root.clamp(modelData.total, 0, 1)
-                valueText: (Math.round(modelData.total * 1000) / 10).toFixed(1) + "%"
-                tooltip: modelData.name + " — " + modelData.label + " "
-                  + (Math.round(modelData.total * 1000) / 10).toFixed(1) + "% used"
+              PanelSectionHeader {
+                width: parent.width
+                text: String(modelData.providerName || "").toUpperCase()
+                  + (String(modelData.tierLabel || "") !== "" ? " · " + modelData.tierLabel : "")
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+              }
+
+              Repeater {
+                model: root.limitWindows(modelData)
+
+                LimitRow {
+                  required property var modelData
+                  width: parent.width
+                  window: modelData
+                }
               }
             }
           }
