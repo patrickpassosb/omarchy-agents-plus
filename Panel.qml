@@ -18,7 +18,25 @@ Panel {
   readonly property color track: Style.selectedFillFor(foreground, Color.accent)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
-  readonly property var providers: usage.enabledProviders
+  readonly property string allProviderId: "__all__"
+
+  // One tab that shows every subscription at once, first in the row: without
+  // it, each subscription's tab had to carry the others to fill its space, so
+  // every tab showed its own meters *and* everybody else's. The synthetic entry
+  // carries no meters of its own — its tab is the stack of the real ones.
+  readonly property var providers: {
+    var real = usage.enabledProviders || []
+    if (real.length < 2) return real
+    return [{
+      providerId: root.allProviderId,
+      providerName: "All",
+      tierLabel: real.length + " subscriptions",
+      limits: [],
+      balance: null
+    }].concat(real)
+  }
+
+  readonly property var realProviders: usage.enabledProviders
   // The selection follows the provider, not the slot it happens to sit in: a
   // provider whose first scan lands while the panel is open would otherwise
   // shift the list underneath you and swap out what you were reading.
@@ -29,6 +47,7 @@ Panel {
     return 0
   }
   readonly property var provider: providers.length > 0 ? providers[providerIndex] : null
+  readonly property bool showingAll: provider ? String(provider.providerId) === root.allProviderId : false
 
   property bool cursorActive: false
 
@@ -50,8 +69,9 @@ Panel {
   // The next few subscriptions, rendered as their own compact blocks under the
   // selected one: the panel is tall and one provider's meters leave most of it
   // empty. Capped, and read from the same model the chips use.
-  readonly property var otherBlocksList: otherBlocks(3)
-  readonly property var headline: bindingWindow(provider)
+  // On the All tab the bar must alarm on the worst subscription of any of them,
+  // not on whatever the synthetic entry happens to hold (which is nothing).
+  readonly property var headline: showingAll ? worstWindow() : bindingWindow(provider)
   readonly property var balance: provider ? (provider.balance || null) : null
   // A prepaid account runs low the way a subscription window fills up: the
   // last 10% of the funded credits lights the same alarm.
@@ -277,22 +297,16 @@ Panel {
   // The weekly window is the one worth showing ("this week"); any other
   // marked-up window is a fallback so a provider with only a session
   // breakdown still gets a section.
-  function otherBlocks(limit) {
-    var out = []
-    var list = root.providers || []
-    var current = root.provider ? root.provider.providerId : ""
+  function worstWindow() {
+    var worst = null
+    var list = root.realProviders || []
     for (var i = 0; i < list.length; i++) {
-      var entry = list[i] || {}
-      if (entry.providerId === current) continue
-      if (!bindingWindow(entry)) continue
-      out.push(entry)
+      var window = bindingWindow(list[i])
+      if (window && (!worst || window.percent > worst.percent)) worst = window
     }
-    out.sort(function(a, b) {
-      var wa = bindingWindow(a), wb = bindingWindow(b)
-      return (wb ? wb.percent : -1) - (wa ? wa.percent : -1)
-    })
-    return out.slice(0, limit)
+    return worst
   }
+
 
   function requestModelRows(p) {
     var list = p ? (p.limits || []) : []
@@ -638,7 +652,7 @@ Panel {
 
           Column {
             id: balanceSection
-            visible: !!root.balance
+            visible: !root.showingAll && !!root.balance
             width: parent.width
             spacing: Style.space(10)
 
@@ -701,7 +715,7 @@ Panel {
 
           Column {
             id: limitsSection
-            visible: root.limits.length > 0
+            visible: !root.showingAll && root.limits.length > 0
             width: parent.width
             spacing: Style.space(10)
 
@@ -730,7 +744,7 @@ Panel {
 
           Column {
             id: requestSection
-            visible: root.requestModels.length > 0
+            visible: !root.showingAll && root.requestModels.length > 0
             width: parent.width
             spacing: Style.spacing.md
 
@@ -766,7 +780,7 @@ Panel {
 
           Column {
             id: usageSection
-            visible: !!root.provider && root.provider.recentDays && root.provider.recentDays.length > 0
+            visible: !root.showingAll && !!root.provider && root.provider.recentDays && root.provider.recentDays.length > 0
             width: parent.width
             spacing: Style.spacing.md
 
@@ -805,7 +819,7 @@ Panel {
 
           Column {
             id: modelSection
-            visible: root.models.length > 0
+            visible: !root.showingAll && root.models.length > 0
             width: parent.width
             spacing: Style.spacing.md
 
@@ -830,35 +844,42 @@ Panel {
             }
           }
 
-          // ---------- The other subscriptions, as blocks ----------
-          Repeater {
-            model: root.otherBlocksList
+          // ---------- Every subscription (the All tab) ----------
+          Column {
+            id: allSection
+            visible: root.showingAll
+            width: parent.width
+            spacing: Style.spacing.lg
 
-            Column {
-              required property var modelData
-              width: parent.width
-              spacing: Style.spacing.md
+            Repeater {
+              model: root.realProviders
 
-              PanelSeparator {
-                visible: true
-                foreground: root.foreground
-              }
+              Column {
+                required property var modelData
+                width: allSection.width
+                spacing: Style.spacing.md
 
-              PanelSectionHeader {
-                width: parent.width
-                text: String(modelData.providerName || "").toUpperCase()
-                  + (String(modelData.tierLabel || "") !== "" ? " · " + modelData.tierLabel : "")
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-              }
+                PanelSeparator {
+                  visible: true
+                  foreground: root.foreground
+                }
 
-              Repeater {
-                model: root.limitWindows(modelData)
-
-                LimitRow {
-                  required property var modelData
+                PanelSectionHeader {
                   width: parent.width
-                  window: modelData
+                  text: String(modelData.providerName || "").toUpperCase()
+                    + (String(modelData.tierLabel || "") !== "" ? " · " + modelData.tierLabel : "")
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                }
+
+                Repeater {
+                  model: root.limitWindows(modelData)
+
+                  LimitRow {
+                    required property var modelData
+                    width: parent.width
+                    window: modelData
+                  }
                 }
               }
             }
