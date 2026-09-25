@@ -331,14 +331,17 @@ Panel {
     for (var i = 0; i < root.limits.length; i++) {
       var window = root.limits[i]
       if (!window.stale) continue
-      if (String(window.staleReason || "") === "auth") staleReason = "auth"
+      var why = String(window.staleReason || "")
+      if (why === "auth") staleReason = "auth"
+      else if (why === "unrefreshed" && staleReason === "") staleReason = "unrefreshed"
       var fetched = window.staleFetchedAt ? new Date(String(window.staleFetchedAt)).getTime() : NaN
       if (isFinite(fetched)) staleClock = Qt.formatDateTime(new Date(fetched), "HH:mm:ss")
     }
     if (staleClock !== "" || staleReason !== "")
-      return (staleReason === "auth"
-        ? "stale — sign in again, last good "
-        : "stale — provider unreachable, last good ") + (staleClock || "unknown")
+      var whyText = "stale — provider unreachable, last good "
+      if (staleReason === "auth") whyText = "stale — sign in again, last good "
+      else if (staleReason === "unrefreshed") whyText = "stale — response unreadable, last good "
+      return whyText + (staleClock || "unknown")
     if (ageSec < 90) return "as of " + clock
     if (ageSec < 5400) return "as of " + clock + " (" + Math.round(ageSec / 60) + "m ago)"
     return "stale — as of " + clock
