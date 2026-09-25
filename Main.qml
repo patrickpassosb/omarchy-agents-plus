@@ -162,8 +162,10 @@ Item {
       return "'" + String(part).replace(/'/g, "'\\''") + "'"
     }).join(" ")
     return ["sh", "-c",
-      "key=$(sed -n 's/^FIREWORKS_API_KEY=//p' \"$HOME/.config/agent-secrets/.env\" 2>/dev/null | head -1); "
-      + "if [ -n \"$key\" ]; then export FIREWORKS_API_KEY=\"$key\"; fi; exec " + quoted]
+      "secrets=\"${AGENT_SECRETS_FILE:-$HOME/.config/agent-secrets/.env}\"; "
+      + "key=$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?FIREWORKS_API_KEY=//p' \"$secrets\" 2>/dev/null | head -1 | tr -d \"'\\\"\"); "
+      + "if [ -n \"$key\" ]; then export FIREWORKS_API_KEY=\"$key\"; "
+      + "else echo 'agents: no FIREWORKS_API_KEY found; Fireworks stays uncollected' >&2; fi; exec " + quoted]
   }
 
   function runUpdate(kind, agentIds) {

@@ -9,9 +9,6 @@ cross-device aggregation); `Agent.qml` is the per-record file watcher.
 
 ## Panel
 
-- **All** — first chip: one tab stacking every enabled subscription's meters,
-  worst first, with the bar alarm tracking the worst of them. The other tabs
-  show one subscription only.
 - **Hero** — the mark, the tool, and the plan it runs on ("Max 20x", "Pro").
   Auth and endpoint problems replace the plan line and repeat in a card.
 - **Subscription switch** — one chip per enabled agent (`h`/`l` or click).
@@ -177,16 +174,14 @@ them after a notable stock panel change:
    `ModelRow` (own `valueText` and `tooltip`, because the row counts requests
    and not tokens). The stock panel ignores unknown limit-row keys, so this
    stays compatible with an unforked record.
-3. **The switch row wraps three chips to a line**, and an **All** chip sits
-   first. One line of eight providers divided the width by eight, so every
-   label was a truncated stub; three per line gives each chip the width its
-   label needs. `All` is a synthetic entry the panel adds itself (no collector,
-   no record): its tab stacks every subscription's meters, so the
-   per-subscription tabs never repeat the others, and the bar alarm on it
-   tracks the worst subscription instead of the selected one. Chip labels are
-   also kept short where the record's own name is long ("Claude Code" →
-   "Claude"), and a family of accounts can collapse into one tab through an
-   aggregate record (one meter per account in one limits array).
+3. **Chip labels come from the collectors, not the panel.** Twelve providers
+   in the switch row made every label a truncated stub, so the row is kept
+   usable from the data side instead of with layout surgery: manifests carry
+   short names (`Ollama`, `All Ollama`, `Grok`), and an aggregate tab can
+   stand in for a family of accounts (one meter per account in a single
+   record's limits array — the panel already draws that). Detail tabs stay
+   installed and are hidden with `providers.<id>.enabled: false` when the row
+   gets crowded.
 4. **Derived countdowns are marked.** A limit row may set
    `"resetsEstimated": true` when the reset time was inferred rather than
    given by the provider; that row renders `Resets in ~2h 9m` so an estimate
@@ -198,3 +193,28 @@ The Ollama adapter uses both (2) and (3); see
 
 Editing any `.qml` here needs a shell restart (`omarchy restart shell`) — record
 files hot-reload, QML does not.
+
+## Provider keys
+
+The stock collectors read their keys from the environment, and this plugin does
+not change that. One case needs a nudge: the Fireworks collector wants
+`FIREWORKS_API_KEY` in its environment, and when that key lives in a `KEY=value`
+secrets file instead, opening the panel would collect nothing from Fireworks.
+`updateCommand` therefore runs the stock update through a shell that reads that
+one variable out of
+
+    ${AGENT_SECRETS_FILE:-~/.config/agent-secrets/.env}
+
+and exports it to that child process only — never printed, never copied
+elsewhere — and prints a line to stderr when it finds no key, so a silent
+Fireworks never happens quietly. On a machine without that file the wrapper is a
+harmless no-op and the stock order still applies (`FIREWORKS_API_KEY` /
+`FIREWORKS_ACCOUNT_ID`, then `~/.fireworks/auth.ini`, then opencode's
+`auth.json`). Set `AGENT_SECRETS_FILE` or export the key in the session
+environment (Hyprland `env =`, `environment.d`) to point it at your own layout.
+
+The collector also needs `accountId` in `~/.config/omarchy/agents/fireworks.json`
+for its billing calls to resolve — without it the record says "invalid billing
+response". A prepaid meter additionally needs `fundedAmount` (and `fundedAt`)
+there, because the real balance endpoint is permission-gated for
+console-issued keys.
