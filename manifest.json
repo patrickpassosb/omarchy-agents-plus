@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "patrickpassos.agents",
-  "name": "Agents Plus",
+  "name": "My Agents",
   "version": "1.1.0",
-  "author": "Patrick Passos",
+  "author": "Omarchy",
   "license": "MIT",
-  "description": "Fork of the Omarchy agents panel: one-decimal percentages, per-model request counts, and honest reset countdowns.",
+  "description": "Claude Code, Codex, and Fireworks usage, limits, and pace in a native Omarchy bar panel (fork: decimal percentages, per-model request counts, marked derived countdowns).",
   "kinds": [
     "bar-widget"
   ],
@@ -14,12 +14,11 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Agents Plus",
+    "displayName": "My Agents",
     "description": "One bar icon and one panel: rate-limit meters with pace, today, the last week, the all-time model breakdown, and per-model request counts for every subscription.",
     "category": "AI",
     "aliases": [
       "agents",
-      "agents-plus",
       "model-usage"
     ],
     "allowMultiple": false,

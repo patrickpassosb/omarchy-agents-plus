@@ -1,10 +1,4 @@
-# Agents Plus
-
-A fork of Omarchy's first-party `omarchy.agents` panel with three additions:
-one-decimal percentages, a per-model **request** section, and markers that keep
-derived countdowns honest (`~` learned, `≤` upper bound). Same bar icon, same
-data files, same settings — see "Divergences from `omarchy.agents`" for exactly
-what changed and how to re-apply it to a newer upstream.
+# Agents
 
 One bar icon and one panel for every AI coding subscription on the machine.
 The panel is strictly a display: it watches the usage records that
@@ -158,23 +152,11 @@ touched in the last 30 days, and Fireworks requests the last 30 days from its
 billing API, so their totals and day counts cover that window. Claude's cover
 every transcript still on disk.
 
-## Freshness
+## This clone's divergences from `omarchy.agents`
 
-Opening the panel asks the companion engine for its providers too (single
-flight, `AGENTS_LIMITS_ONLY=1` so the local-log scan is skipped), because that
-engine otherwise only runs on its own 15-minute timer — which is how the
-meters could sit ~15 minutes behind the provider's own dashboard. The footer
-prints `as of HH:MM:SS` from the record's own timestamp, and when a collector
-re-emits its last good numbers because the provider was unreachable, it says
-`stale — provider unreachable, last good HH:MM:SS` instead of showing them as
-current. Both the panel-open refresh and the staleness handling need the
-companion collectors to pass `AGENTS_LIMITS_ONLY` and to mark cached rows.
-
-## Divergences from `omarchy.agents`
-
-Forked with `omarchy plugin clone omarchy.agents`, so an Omarchy update does
-not reach this plugin: re-apply the changes after a notable upstream panel
-change (each one is a few lines, listed below).
+This is a fork (`omarchy plugin clone omarchy.agents` → `patrickpassos.agents`),
+kept for these changes. An Omarchy update does **not** reach it, so re-apply
+them after a notable stock panel change:
 
 1. **Percentages show one decimal** (`18.9%` instead of `19%`) so they match the
    provider dashboards (`Panel.qml`, the limit value text).
@@ -192,40 +174,22 @@ change (each one is a few lines, listed below).
    `ModelRow` (own `valueText` and `tooltip`, because the row counts requests
    and not tokens). The stock panel ignores unknown limit-row keys, so this
    stays compatible with an unforked record.
-3. **Derived countdowns are marked.** A limit row may set
+3. **Chip labels come from the collectors, not the panel.** Twelve providers
+   in the switch row made every label a truncated stub, so the row is kept
+   usable from the data side instead of with layout surgery: manifests carry
+   short names (`Ollama`, `All Ollama`, `Grok`), and an aggregate tab can
+   stand in for a family of accounts (one meter per account in a single
+   record's limits array — the panel already draws that). Detail tabs stay
+   installed and are hidden with `providers.<id>.enabled: false` when the row
+   gets crowded.
+4. **Derived countdowns are marked.** A limit row may set
    `"resetsEstimated": true` when the reset time was inferred rather than
    given by the provider; that row renders `Resets in ~2h 9m` so an estimate
    never reads as exact.
 
-A collector feeds them: both keys ride on a limit row, which the stock record
-contract passes through verbatim and the stock panel ignores, so a record
-stays valid with or without this plugin. Companion collectors for **Ollama
-Cloud** and **SuperGrok** live in
-[`rohaquinlop/omarchy-agent-collectors`](https://github.com/rohaquinlop/omarchy-agent-collectors)
-(`adapters/ollama`, `adapters/grok`): meters from the provider's own API,
-per-model request counts, reset countdowns, and local token history.
+The Ollama adapter uses both (2) and (3); see
+`~/.config/omarchy/agent-collectors/adapters/ollama/` and the vault skill
+`Skills/omarchy-agent-panel-usage-chip/`.
 
 Editing any `.qml` here needs a shell restart (`omarchy restart shell`) — record
 files hot-reload, QML does not.
-
-## Install
-
-```bash
-omarchy plugin add https://github.com/patrickpassosb/omarchy-agents-plus.git --enable
-```
-
-## Remove
-
-```bash
-omarchy plugin remove patrickpassos.agents
-```
-
-That drops the checkout and returns the bar to the stock `omarchy.agents` panel
-(enable it with `omarchy plugin enable omarchy.agents`). It touches nothing
-else: usage records keep being written by whatever collector produced them, they
-simply stop being displayed by this plugin.
-
-## License
-
-MIT, like the upstream panel this forks. `Panel.qml`, `Main.qml` and `Agent.qml`
-derive from Omarchy's `shell/plugins/agents` (MIT, © Basecamp) — see `LICENSE`.
